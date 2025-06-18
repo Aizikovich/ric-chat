@@ -3,14 +3,19 @@ from langgraph_supervisor import create_supervisor
 from langgraph.prebuilt import create_react_agent
 import pandas as pd
 from dotenv import load_dotenv
+from utils import get_ue_cell_data
 import os
 
 load_dotenv()  # Load variables from .env
 
 os.environ["OPENAI_API_KEY"] = os.getenv("API_KEY")
 
-
 model = ChatOpenAI(model="gpt-4o-mini")
+
+
+influx_host = os.getenv("INFLUX_HOST")
+influx_password = os.getenv("INFLUX_PASSWORD")
+
 
 
 def get_ue_data(file_path: str) -> dict: 
@@ -39,7 +44,7 @@ network_agent = create_react_agent(
     prompt=(
         "You are an expert in telecom network performance. "
         "You can answer questions about UEs and cells data. "
-        "Use get_ue_data('data/kpis/ue_head.csv') to read UE data and get_cell_data('data/kpis/cell_head.csv') to read cell data. "
+        "Use get_ue_data('data/kpis/ue.csv') to read UE data and get_cell_data('data/kpis/cell.csv') to read cell data. "
         "Always analyze the data and provide specific insights about network performance."
     ),
     tools=[get_ue_data, get_cell_data],
@@ -85,37 +90,8 @@ workflow = create_supervisor(
 # Compile and run
 app = workflow.compile()
 
-# Test the system
-def test_ad_xapp_status():
-    result = app.invoke({
-        "messages": [
-            {
-                "role": "user",
-                "content": "Is the ad xApp ok?"
-            }
-        ]
-    })
-    
-    print("=== AD XAPP STATUS CHECK ===")
-    for r in result['messages']:
-        r.pretty_print()
-
-def test_network_performance():
-    result = app.invoke({
-        "messages": [
-            {
-                "role": "user", 
-                "content": "What's the network performance like? Analyze the UE data."
-            }
-        ]
-    })
-    
-    print("\n=== NETWORK PERFORMANCE CHECK ===")
-    for r in result['messages']:
-        r.pretty_print()
-
 def get_data():
-    print("Fetching data from CSV files...")
+    get_ue_cell_data(influx_host, influx_password)
     pass
 
 def main():
@@ -124,9 +100,10 @@ def main():
         query = input("User: ")
         if query.lower() in ["exit", "quit", "q"]:
             print("Exiting the application.")
-            break
+            return
 
         get_data()
+        print("Updated data.")
         result = app.invoke({
             "messages": [
                 {
