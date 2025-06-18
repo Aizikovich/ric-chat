@@ -13,13 +13,13 @@ def execute_bash_command(command):
 def stream_xapps_logs(num_lines=200):
     log_files = ["trafficxapp.log", "ad.log", "qp.log"]
     for log_file in log_files:
-        if os.path.exists(log_file):
+        if os.path.exists(f"data/logs/{log_file}"):
             os.remove(log_file)
             print(f"Deleted old log file: {log_file}")
 
-    ts = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-trafficxapp) >> trafficxapp.log"
-    ad = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-ad) >> ad.log"
-    qp = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-qp) >> qp.log"
+    ts = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-trafficxapp) >> data/logs/trafficxapp.log"
+    ad = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-ad) >> data/logs/ad.log"
+    qp = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-qp) >> data/logs/qp.log"
     commands = [ts, ad, qp]
     for command in commands:
         try:
