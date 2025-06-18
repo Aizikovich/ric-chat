@@ -3,7 +3,7 @@ from langgraph_supervisor import create_supervisor
 from langgraph.prebuilt import create_react_agent
 import pandas as pd
 from dotenv import load_dotenv
-from utils import get_ue_cell_data
+from utils import get_ue_cell_data, stream_xapps_logs
 import os
 
 load_dotenv()  # Load variables from .env
@@ -92,6 +92,7 @@ app = workflow.compile()
 
 def get_data():
     get_ue_cell_data(influx_host, influx_password)
+    stream_xapps_logs()
     pass
 
 def main():
