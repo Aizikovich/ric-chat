@@ -39,7 +39,7 @@ network_agent = create_react_agent(
     prompt=(
         "You are an expert in telecom network performance. "
         "You can answer questions about UEs and cells data. "
-        "Use get_ue_data('ue_head.csv') to read UE data and get_cell_data('cell_head.csv') to read cell data. "
+        "Use get_ue_data('data/kpis/ue_head.csv') to read UE data and get_cell_data('data/kpis/cell_head.csv') to read cell data. "
         "Always analyze the data and provide specific insights about network performance."
     ),
     tools=[get_ue_data, get_cell_data],
@@ -61,9 +61,9 @@ xapp_agent = create_react_agent(
     prompt=(
         "You are an expert in analyzing xApp logs for qp, ad, and trafficxapp applications. "
         "When asked about xApp status, immediately read the relevant log files: "
-        "- For ad xApp: read_log_file('ad.log') "
-        "- For qp xApp: read_log_file('qp.log') "
-        "- For trafficxapp: read_log_file('trafficxapp.log') "
+        "- For ad xApp: read_log_file('data/logs/ad.log') "
+        "- For qp xApp: read_log_file('data/logs/qp.log') "
+        "- For trafficxapp: read_log_file('data/logs/trafficxapp.log') "
         "Analyze the logs for errors, warnings, and overall health status. "
         "Provide specific findings about what you discover in the logs."
     ),
