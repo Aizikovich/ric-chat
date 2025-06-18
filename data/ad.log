@@ -1,0 +1,23 @@
+1749571627 1/RMR [INFO] ric message routing library on SI95/g mv=3 flg=02 (f25dc7f 4.0.5 built: May  7 2020)
+{"ts": 1749571627726, "crit": "DEBUG", "id": "ricxappframe.xapp_rmr", "mdc": {}, "msg": "Waiting for rmr to init on port 4560.."}
+{"ts": 1749571627826, "crit": "DEBUG", "id": "ricxappframe.xapp_rmr", "mdc": {}, "msg": "Starting loop thread"}
+{"ts": 1749571627827, "crit": "DEBUG", "id": "ricxappframe.xapp_rmr", "mdc": {}, "msg": "Work loop starts"}
+{"ts": 1749571628280, "crit": "WARNING", "id": "ricxappframe.xapp_frame", "mdc": {}, "msg": "__init__: NOT watching any config file"}
+{"ts": 1749571628280, "crit": "DEBUG", "id": "src.main", "mdc": {}, "msg": "AD xApp starting"}
+AD xApp starting this is what i addded
+{"ts": 1749571628283, "crit": "INFO", "id": "database", "mdc": {}, "msg": "InfluxDB host: 10.97.126.165, port: 8086, user: admin, password: fVA4owfOlS"}
+{"ts": 1749571628284, "crit": "INFO", "id": "database", "mdc": {}, "msg": "Conected to Influx Database, InfluxDB version : 1.8.0"}
+{"ts": 1749571628284, "crit": "INFO", "id": "src.main", "mdc": {}, "msg": "Connected to InfluxDB successfully"}
+{"ts": 1749571628286, "crit": "WARNING", "id": "ad_train", "mdc": {}, "msg": "Check if InfluxDB instance is up / Not sufficient data for Training"}
+1749571628 1/RMR [INFO] sends: ts=1749571628 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricplt-a1mediator-rmr.ricplt:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571628 1/RMR [INFO] sends: ts=1749571628 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricxapp-trafficxapp-rmr:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571659 1/RMR [INFO] sends: ts=1749571659 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricplt-a1mediator-rmr.ricplt:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571659 1/RMR [INFO] sends: ts=1749571659 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricxapp-trafficxapp-rmr:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+{"ts": 1749571688348, "crit": "WARNING", "id": "ad_train", "mdc": {}, "msg": "Check if InfluxDB instance is up / Not sufficient data for Training"}
+1749571690 1/RMR [INFO] sends: ts=1749571690 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricplt-a1mediator-rmr.ricplt:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571690 1/RMR [INFO] sends: ts=1749571690 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricxapp-trafficxapp-rmr:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571721 1/RMR [INFO] sends: ts=1749571721 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricplt-a1mediator-rmr.ricplt:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571721 1/RMR [INFO] sends: ts=1749571721 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricxapp-trafficxapp-rmr:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+{"ts": 1749571748411, "crit": "WARNING", "id": "ad_train", "mdc": {}, "msg": "Check if InfluxDB instance is up / Not sufficient data for Training"}
+1749571752 1/RMR [INFO] sends: ts=1749571752 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricplt-a1mediator-rmr.ricplt:4560 open=0 succ=0 fail=0 (hard=0 soft=0)
+1749571752 1/RMR [INFO] sends: ts=1749571752 src=service-ricxapp-ad-rmr.ricxapp:4560 target=service-ricxapp-trafficxapp-rmr:4560 open=0 succ=0 fail=0 (hard=0 soft=0)

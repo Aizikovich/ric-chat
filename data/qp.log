@@ -1,0 +1,2 @@
+{"ts": 1749571658341, "crit": "DEBUG", "id": "src.main", "mdc": {}, "msg": "QP xApp starting"}
+{"ts": 1749571667557, "crit": "ERROR", "id": "database", "mdc": {}, "msg": "Failed to establish a new connection with InflulxDB, Please check your url/hostname"}
