@@ -11,15 +11,16 @@ def execute_bash_command(command):
 
 
 def stream_xapps_logs(num_lines=200):
+    prefix = "data/logs/"
     log_files = ["trafficxapp.log", "ad.log", "qp.log"]
     for log_file in log_files:
-        if os.path.exists(f"data/logs/{log_file}"):
-            os.remove(log_file)
+        if os.path.exists(f"{prefix}{log_file}"):
+            os.remove(f"{prefix}{log_file}")
             print(f"Deleted old log file: {log_file}")
 
-    ts = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-trafficxapp) >> data/logs/trafficxapp.log"
-    ad = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-ad) >> data/logs/ad.log"
-    qp = "kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-qp) >> data/logs/qp.log"
+    ts = f"kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-trafficxapp) >> {prefix}trafficxapp.log"
+    ad = f"kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-ad) >> {prefix}ad.log"
+    qp = f"kubectl logs -n ricxapp --tail=200 $(kubectl get pods -n ricxapp -o name | grep ricxapp-qp) >> {prefix}qp.log"
     commands = [ts, ad, qp]
     for command in commands:
         try:
