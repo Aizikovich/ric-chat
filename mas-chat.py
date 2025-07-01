@@ -5,6 +5,11 @@ import pandas as pd
 from dotenv import load_dotenv
 from utils import get_ue_cell_data, stream_xapps_logs
 import os
+from data_extraction_agent import (
+    create_data_extraction_agent,
+    create_enhanced_network_agent,
+    read_filtered_data
+)
 
 load_dotenv()  # Load variables from .env
 
@@ -18,37 +23,28 @@ influx_password = os.getenv("INFLUX_PASSWORD")
 
 
 
-def get_ue_data(file_path: str) -> dict: 
-    """
-    Reads the content of a UEs csv file.
-    """
-    try:
-        df = pd.read_csv(file_path)
-        return df.to_dict(orient='records')
-    except Exception as e:
-        return f"Error reading file {file_path}: {str(e)}"
+# def get_ue_data(file_path: str) -> dict: 
+#     """
+#     Reads the content of a UEs csv file.
+#     """
+#     try:
+#         df = pd.read_csv(file_path)
+#         return df.to_dict(orient='records')
+#     except Exception as e:
+#         return f"Error reading file {file_path}: {str(e)}"
     
-def get_cell_data(file_path: str) -> dict:
-    """
-    Reads the content of a cells csv file.
-    """
-    try:
-        df = pd.read_csv(file_path)
-        return df.to_dict(orient='records')
-    except Exception as e:
-        return f"Error reading file {file_path}: {str(e)}"
+# def get_cell_data(file_path: str) -> dict:
+#     """
+#     Reads the content of a cells csv file.
+#     """
+#     try:
+#         df = pd.read_csv(file_path)
+#         return df.to_dict(orient='records')
+#     except Exception as e:
+#         return f"Error reading file {file_path}: {str(e)}"
 
-network_agent = create_react_agent(
-    model=model,
-    name="network_agent",
-    prompt=(
-        "You are an expert in telecom network performance. "
-        "You can answer questions about UEs and cells data. "
-        "Use get_ue_data('data/kpis/ue.csv') to read UE data and get_cell_data('data/kpis/cell.csv') to read cell data. "
-        "Always analyze the data and provide specific insights about network performance."
-    ),
-    tools=[get_ue_data, get_cell_data],
-)
+data_extraction_agent = create_data_extraction_agent(model)
+enchanced_network_agent = create_enhanced_network_agent(model)
 
 def read_log_file(file_path: str) -> str:
     """
@@ -76,23 +72,38 @@ xapp_agent = create_react_agent(
 )
 
 workflow = create_supervisor(
-    [network_agent, xapp_agent],
+    [data_extraction_agent, enchanced_network_agent, xapp_agent],
     model=model,
     prompt=(
-        "You are a team supervisor managing xApp and telecom network experts. "
-        "Route requests as follows: "
-        "- For xApp status, logs, deployment issues, or configurations: use xapp_agent "
-        "- For network performance, UE analysis, or cell analysis: use network_agent "
-        "Be specific in your routing and ensure agents take action immediately."
-    )
+    "You are a team supervisor managing telecom network analysis with a 3-agent workflow. "
+    "Route requests as follows:\n"
+    
+    "For NETWORK-related queries (UE analysis, cell analysis, mobility, performance):\n"
+    "1. FIRST: Always route to data_extraction_agent to filter relevant data\n"
+    "2. THEN: Route to enhanced_network_agent to analyze the filtered data\n"
+    
+    "For XAPP-related queries (logs, deployment, configurations):\n"
+    "- Route directly to xapp_agent\n"
+    
+    "IMPORTANT WORKFLOW:\n"
+    "- Network queries MUST go through data extraction first, then analysis\n"
+    "- Never send network queries directly to enhanced_network_agent without filtered data\n"
+    "- The data_extraction_agent will create filtered CSV files\n"
+    "- The enhanced_network_agent will analyze these filtered files\n"
+    
+    "Example routing:\n"
+    "Query: 'Which cell towers has UE10 passed through?'\n"
+    "1. data_extraction_agent → extracts UE10 mobility data\n"
+    "2. enhanced_network_agent → analyzes the filtered data\n"
+)
 )
 
 # Compile and run
 app = workflow.compile()
 
 def get_data():
-    get_ue_cell_data(influx_host, influx_password)
-    stream_xapps_logs()
+    # get_ue_cell_data(influx_host, influx_password)
+    # stream_xapps_logs()
     pass
 
 def main():

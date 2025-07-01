@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "langchain-project"
+version = "0.1.0"
+description = "A LangChain-based project with vector stores and data processing capabilities"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.9"
+langchain = "*"
+langchain-openai = "*"
+langchain-community = "*"
+langchain-experimental = "*"
+langgraph = "*"
+faiss-cpu = "*"
+openai = "*"
+tiktoken = "*"
+pandas = "*"
+numpy = "*"
+tabulate = "*"
+ipython = "*"
+matplotlib = "*"
+pillow = "*"
+python-dotenv = "*"
+scikit-learn = "*"
+scipy = "*"
+influxdb-client = "*"
+langgraph-supervisor= "*"
+influxdb = "*"
+
+[tool.poetry.group.dev.dependencies]
+# Add development dependencies here if needed
+# pytest = "^6.0"
+# black = "^22.0"
+# flake8 = "^4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
