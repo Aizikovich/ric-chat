@@ -13,8 +13,20 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         ue_id: Specific UE ID to filter for (optional)
     """
     try:
+        # Check if the source file exists
+        source_file = 'data/kpis/ue_0_100_seed_60.csv'
+        if not os.path.exists(source_file):
+            return f"Error: Source file {source_file} not found. Please ensure data files are present."
+            
         # Read the full UE dataset
-        df = pd.read_csv('data/kpis/ue.csv')
+        df = pd.read_csv(source_file)
+        
+        # Strip whitespace from column names
+        df.columns = df.columns.str.strip()
+        
+        # If empty dataframe, return early
+        if df.empty:
+            return "Error: UE dataset is empty"
         
         # Define column mappings for different query types
         mobility_columns = ['time', 'ue-id', 'nrCellIdentity', 'x', 'y', 'step']
@@ -26,7 +38,7 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         # Determine relevant columns based on query description
         query_lower = query_description.lower()
         
-        if any(keyword in query_lower for keyword in ['cell tower', 'passed through', 'mobility', 'movement', 'handover']):
+        if any(keyword in query_lower for keyword in ['cell tower', 'cells', 'passed through', 'mobility', 'movement', 'handover', 'travelled']):
             selected_columns = mobility_columns
             output_suffix = 'mobility'
         elif any(keyword in query_lower for keyword in ['signal', 'rsrp', 'rsrq', 'rssinr', 'quality']):
@@ -49,13 +61,29 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         # Filter columns that actually exist in the dataframe
         available_columns = [col for col in selected_columns if col in df.columns]
         
+        if not available_columns:
+            return f"Error: None of the required columns {selected_columns} exist in the dataset. Available columns: {list(df.columns)}"
+        
         # Filter the dataframe
         filtered_df = df[available_columns].copy()
         
         # Filter by specific UE if provided
         if ue_id:
-            filtered_df = filtered_df[filtered_df['ue-id'] == ue_id]
-            output_suffix += f'_{ue_id}'
+            # Strip whitespace from ue-id column values
+            if 'ue-id' in filtered_df.columns:
+                filtered_df['ue-id'] = filtered_df['ue-id'].str.strip()
+                df['ue-id'] = df['ue-id'].str.strip()  # Also strip from original df for the error message
+            
+            # Normalize UE ID format (handle different cases like 'UE10', 'ue10', '10')
+            ue_id_normalized = ue_id.upper() if not ue_id.upper().startswith('UE') else ue_id.upper()
+            if not ue_id_normalized.startswith('UE'):
+                ue_id_normalized = f'UE{ue_id_normalized}'
+                
+            filtered_df = filtered_df[filtered_df['ue-id'].str.upper() == ue_id_normalized]
+            output_suffix += f'_{ue_id_normalized}'
+            
+            if filtered_df.empty:
+                return f"No data found for UE ID: {ue_id}. Available UE IDs: {sorted(df['ue-id'].unique())}"
         
         # Sort by time for chronological analysis
         if 'time' in filtered_df.columns:
@@ -68,7 +96,14 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         output_path = f'data/filtered/ue_{output_suffix}.csv'
         filtered_df.to_csv(output_path, index=False)
         
-        return f"Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}"
+        # For mobility queries, include unique cells visited
+        if output_suffix == 'mobility' and 'nrCellIdentity' in filtered_df.columns:
+            unique_cells = filtered_df['nrCellIdentity'].unique()
+            cells_info = f" Unique cells visited: {list(unique_cells)}"
+        else:
+            cells_info = ""
+        
+        return f"Success: Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}.{cells_info}"
         
     except Exception as e:
         return f"Error extracting UE data: {str(e)}"
@@ -83,8 +118,20 @@ def extract_cell_performance_data(query_description: str, cell_id: int = None) -
         cell_id: Specific cell ID to filter for (optional)
     """
     try:
+        # Check if the source file exists
+        source_file = 'data/kpis/cell.csv'
+        if not os.path.exists(source_file):
+            return f"Error: Source file {source_file} not found. Please ensure data files are present."
+            
         # Read the full cell dataset
-        df = pd.read_csv('data/kpis/cell.csv')
+        df = pd.read_csv(source_file)
+        
+        # Strip whitespace from column names
+        df.columns = df.columns.str.strip()
+        
+        # If empty dataframe, return early
+        if df.empty:
+            return "Error: Cell dataset is empty"
         
         # Define column mappings for different query types
         resource_usage_columns = ['time', 'nrCellIdentity', 'availPrbDl', 'availPrbUl', 'measPeriodPrb']
@@ -112,13 +159,19 @@ def extract_cell_performance_data(query_description: str, cell_id: int = None) -
         # Filter columns that actually exist in the dataframe
         available_columns = [col for col in selected_columns if col in df.columns]
         
+        if not available_columns:
+            return f"Error: None of the required columns {selected_columns} exist in the dataset. Available columns: {list(df.columns)}"
+        
         # Filter the dataframe
         filtered_df = df[available_columns].copy()
         
         # Filter by specific cell if provided
-        if cell_id:
+        if cell_id is not None:
             filtered_df = filtered_df[filtered_df['nrCellIdentity'] == cell_id]
             output_suffix += f'_cell{cell_id}'
+            
+            if filtered_df.empty:
+                return f"No data found for Cell ID: {cell_id}. Available Cell IDs: {df['nrCellIdentity'].unique()[:10]}..."
         
         # Sort by time for chronological analysis
         if 'time' in filtered_df.columns:
@@ -131,22 +184,59 @@ def extract_cell_performance_data(query_description: str, cell_id: int = None) -
         output_path = f'data/filtered/cell_{output_suffix}.csv'
         filtered_df.to_csv(output_path, index=False)
         
-        return f"Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}"
+        return f"Success: Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}"
         
     except Exception as e:
         return f"Error extracting cell data: {str(e)}"
 
-def read_filtered_data(file_path: str) -> dict:
+def read_filtered_data(file_path: str) -> str:
     """
     Reads the filtered CSV data for analysis.
+    Returns a string summary instead of dict to avoid recursion issues.
     """
     try:
+        if not os.path.exists(file_path):
+            return f"Error: File {file_path} not found"
+            
         df = pd.read_csv(file_path)
-        return df.to_dict(orient='records')
+        
+        # Strip whitespace from column names (in case of formatting issues)
+        df.columns = df.columns.str.strip()
+        
+        # Create a summary instead of returning all data
+        summary = f"File: {file_path}\n"
+        summary += f"Shape: {df.shape}\n"
+        summary += f"Columns: {list(df.columns)}\n"
+        
+        # Add specific summaries based on data type
+        if 'ue-id' in df.columns and 'nrCellIdentity' in df.columns:
+            # UE mobility data
+            if 'nrCellIdentity' in df.columns:
+                unique_cells = df['nrCellIdentity'].unique()
+                summary += f"\nUnique cells: {list(unique_cells)}\n"
+                summary += f"Number of unique cells: {len(unique_cells)}\n"
+                
+                # Cell visit sequence for each UE
+                for ue in df['ue-id'].unique():
+                    ue_data = df[df['ue-id'] == ue]
+                    cell_sequence = ue_data['nrCellIdentity'].tolist()
+                    summary += f"\n{ue} cell sequence: {cell_sequence[:20]}{'...' if len(cell_sequence) > 20 else ''}"
+                    
+        elif 'nrCellIdentity' in df.columns and 'throughput' in df.columns:
+            # Cell performance data
+            summary += f"\nCell IDs: {df['nrCellIdentity'].unique()}\n"
+            if 'throughput' in df.columns:
+                summary += f"Throughput range: {df['throughput'].min():.2f} - {df['throughput'].max():.2f}\n"
+        
+        # Add first few rows as sample
+        summary += f"\nFirst 5 rows:\n{df.head().to_string()}"
+        
+        return summary
+        
     except Exception as e:
         return f"Error reading filtered file {file_path}: {str(e)}"
 
-# Create the data extraction agent
+# Create the data extraction agent with improved error handling
 def create_data_extraction_agent(model):
     """
     Creates a specialized data extraction agent that filters data based on query context.
@@ -158,6 +248,9 @@ def create_data_extraction_agent(model):
         prompt=(
             "You are a data extraction specialist for telecom network data. "
             "Your job is to analyze user queries and extract only the relevant data columns and rows. "
+            
+            "IMPORTANT: You must complete your task in ONE attempt. Do not loop or retry.\n"
+            "If a function returns an error, report it and stop.\n"
             
             "UE DATA COLUMNS EXPLAINED:\n"
             "- time: Timestamp of measurement\n"
@@ -184,12 +277,15 @@ def create_data_extraction_agent(model):
             "1. Analyze what data is needed\n"
             "2. Use extract_ue_mobility_data() or extract_cell_performance_data() with the query description\n"
             "3. Include specific IDs (UE ID or Cell ID) if mentioned in the query\n"
-            "4. Always return the path to the filtered CSV file\n"
+            "4. Return the result immediately - do not retry or loop\n"
+            "5. If the extraction was successful, return the file path. If it failed, return the error message.\n"
             
             "Examples:\n"
-            "- 'Which cell towers has UE10 passed through?' → extract_ue_mobility_data('cell towers passed through', 'UE10')\n"
+            "- 'Which cell towers has UE10 passed through?' → extract_ue_mobility_data('cell towers passed through travelled', 'UE10')\n"
             "- 'Show signal quality for all UEs' → extract_ue_mobility_data('signal quality')\n"
             "- 'Cell 5 throughput performance' → extract_cell_performance_data('throughput performance', 5)\n"
+            
+            "REMEMBER: Execute ONE function call and return the result. Do not loop."
         ),
         tools=[extract_ue_mobility_data, extract_cell_performance_data, read_filtered_data],
     )
@@ -209,8 +305,9 @@ def create_enhanced_network_agent(model):
             "You are an expert in telecom network performance analysis. "
             "You work with pre-filtered, relevant data provided by the data extraction agent. "
             "When you receive a filtered CSV file path, use read_filtered_data() to analyze it. "
+            "The function will return a summary of the data including unique cells visited. "
             "Focus on providing specific, accurate insights based on the filtered data. "
-            "For mobility queries, track the chronological sequence of cell connections. "
+            "For mobility queries, report the chronological sequence of cell connections. "
             "For performance queries, analyze trends and identify issues. "
             "Always be precise and base your analysis only on the actual data provided."
         ),

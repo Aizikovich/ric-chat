@@ -123,7 +123,7 @@ def main():
                     "content": f"{query}."
                 }
             ]
-        })
+        }, config={"recursion_limit":24})
         print("\n=== NETWORK PERFORMANCE CHECK ===")
         for r in result['messages']:
             r.pretty_print()
