@@ -50,9 +50,10 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         elif any(keyword in query_lower for keyword in ['throughput', 'performance', 'speed', 'prb']):
             selected_columns = throughput_columns
             output_suffix = 'throughput'
-        elif any(keyword in query_lower for keyword in ['anomaly', 'anomalies', 'error', 'problem']):
-            selected_columns = anomaly_columns
-            output_suffix = 'anomalies'
+        elif any(keyword in query_lower for keyword in ['anomaly', 'anomalies', 'error', 'problem', 'detect', 'issue']):
+            # For anomaly detection, we need ALL columns to analyze patterns
+            selected_columns = list(df.columns)  # Select all columns
+            output_suffix = 'anomaly_analysis'
         else:
             # Default to mobility data for general queries
             selected_columns = mobility_columns
@@ -75,15 +76,27 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
                 df['ue-id'] = df['ue-id'].str.strip()  # Also strip from original df for the error message
             
             # Normalize UE ID format (handle different cases like 'UE10', 'ue10', '10')
-            ue_id_normalized = ue_id.upper() if not ue_id.upper().startswith('UE') else ue_id.upper()
-            if not ue_id_normalized.startswith('UE'):
+            ue_id_normalized = ue_id.strip()
+            if not ue_id_normalized.upper().startswith('UE'):
                 ue_id_normalized = f'UE{ue_id_normalized}'
+            else:
+                ue_id_normalized = ue_id_normalized.upper()
                 
-            filtered_df = filtered_df[filtered_df['ue-id'].str.upper() == ue_id_normalized]
+            # Filter for the specific UE
+            filtered_df = filtered_df[filtered_df['ue-id'] == ue_id_normalized]
             output_suffix += f'_{ue_id_normalized}'
             
             if filtered_df.empty:
-                return f"No data found for UE ID: {ue_id}. Available UE IDs: {sorted(df['ue-id'].unique())}"
+                # Try different formats
+                possible_formats = [ue_id_normalized, ue_id_normalized.lower(), ue_id, f'UE{ue_id}']
+                for format_try in possible_formats:
+                    temp_df = df[df['ue-id'] == format_try]
+                    if not temp_df.empty:
+                        filtered_df = temp_df[available_columns].copy()
+                        break
+                
+                if filtered_df.empty:
+                    return f"No data found for UE ID: {ue_id}. Available UE IDs: {sorted(df['ue-id'].unique())}"
         
         # Sort by time for chronological analysis
         if 'time' in filtered_df.columns:
@@ -96,14 +109,17 @@ def extract_ue_mobility_data(query_description: str, ue_id: str = None) -> str:
         output_path = f'data/filtered/ue_{output_suffix}.csv'
         filtered_df.to_csv(output_path, index=False)
         
+        # Add row count information
+        row_info = f" Rows extracted: {len(filtered_df)}"
+        
         # For mobility queries, include unique cells visited
-        if output_suffix == 'mobility' and 'nrCellIdentity' in filtered_df.columns:
+        if output_suffix.startswith('mobility') and 'nrCellIdentity' in filtered_df.columns:
             unique_cells = filtered_df['nrCellIdentity'].unique()
             cells_info = f" Unique cells visited: {list(unique_cells)}"
         else:
             cells_info = ""
         
-        return f"Success: Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}.{cells_info}"
+        return f"Success: Filtered data saved to {output_path}. Shape: {filtered_df.shape}. Columns: {list(filtered_df.columns)}.{cells_info}{row_info}"
         
     except Exception as e:
         return f"Error extracting UE data: {str(e)}"

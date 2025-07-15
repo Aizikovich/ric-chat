@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 from langgraph.prebuilt import create_react_agent
 from datetime import datetime, timedelta
 
-def detect_signal_anomalies(file_path: str, threshold_std: float = 2.5) -> str:
+def detect_signal_anomalies(file_path: str, threshold_std: float = 2.0) -> str:
     """
     Detects anomalies in signal quality metrics (RSRP, RSRQ, RSSINR).
     Uses statistical methods to identify outliers.
@@ -23,6 +23,11 @@ def detect_signal_anomalies(file_path: str, threshold_std: float = 2.5) -> str:
         if not available_signal_cols:
             return "No signal quality columns found in the data."
         
+        # Also check for extreme values based on typical ranges
+        rsrp_threshold = -100  # dBm - poor signal
+        rsrq_threshold = -15   # dB - poor quality
+        rssinr_threshold = 0   # dB - poor signal to noise
+        
         for col in available_signal_cols:
             if col in df.columns:
                 # Calculate statistical measures
@@ -33,7 +38,24 @@ def detect_signal_anomalies(file_path: str, threshold_std: float = 2.5) -> str:
                 lower_bound = mean_val - threshold_std * std_val
                 upper_bound = mean_val + threshold_std * std_val
                 
+                # Statistical outliers
                 outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
+                
+                # Also check for values below acceptable thresholds
+                if col == 'RF.serving.RSRP':
+                    poor_signal = df[df[col] < rsrp_threshold]
+                    outliers = pd.concat([outliers, poor_signal]).drop_duplicates()
+                elif col == 'RF.serving.RSRQ':
+                    poor_quality = df[df[col] < rsrq_threshold]
+                    outliers = pd.concat([outliers, poor_quality]).drop_duplicates()
+                elif col == 'RF.serving.RSSINR':
+                    # For RSSINR, convert from large number to dB if needed
+                    if df[col].mean() > 1000:  # Looks like raw values
+                        df[col + '_dB'] = 10 * np.log10(df[col])
+                        poor_sinr = df[df[col + '_dB'] < rssinr_threshold]
+                    else:
+                        poor_sinr = df[df[col] < rssinr_threshold]
+                    outliers = pd.concat([outliers, poor_sinr]).drop_duplicates()
                 
                 if not outliers.empty:
                     for idx, row in outliers.iterrows():
@@ -42,6 +64,14 @@ def detect_signal_anomalies(file_path: str, threshold_std: float = 2.5) -> str:
                         value = row[col]
                         cell = row.get('nrCellIdentity', 'Unknown')
                         
+                        # Determine severity based on value
+                        if col == 'RF.serving.RSRP':
+                            severity = 'Critical' if value < -110 else ('High' if value < -100 else 'Medium')
+                        elif col == 'RF.serving.RSRQ':
+                            severity = 'Critical' if value < -20 else ('High' if value < -15 else 'Medium')
+                        else:
+                            severity = 'High' if abs(value - mean_val) > 3 * std_val else 'Medium'
+                        
                         anomalies.append({
                             'type': 'Signal Quality Anomaly',
                             'metric': col,
@@ -49,8 +79,8 @@ def detect_signal_anomalies(file_path: str, threshold_std: float = 2.5) -> str:
                             'time': time,
                             'value': value,
                             'cell': cell,
-                            'severity': 'High' if abs(value - mean_val) > 3 * std_val else 'Medium',
-                            'description': f"{col} value {value:.2f} is significantly {'below' if value < mean_val else 'above'} normal range [{lower_bound:.2f}, {upper_bound:.2f}]"
+                            'severity': severity,
+                            'description': f"{col} value {value:.2f} is {'poor' if col == 'RF.serving.RSRP' and value < rsrp_threshold else 'significantly below' if value < mean_val else 'above'} normal range [{lower_bound:.2f}, {upper_bound:.2f}]"
                         })
         
         return format_anomaly_report(anomalies, "Signal Quality Anomalies")
@@ -152,11 +182,11 @@ def detect_handover_anomalies(file_path: str, max_handovers_per_minute: int = 3)
                 
                 # Detect cell changes
                 ue_data['cell_changed'] = ue_data['nrCellIdentity'].ne(ue_data['nrCellIdentity'].shift())
-                handovers = ue_data[ue_data['cell_changed']]
+                handovers = ue_data[ue_data['cell_changed']].copy()  # Use copy() to avoid warning
                 
                 if len(handovers) > 1:
                     # Check for rapid handovers
-                    handovers['time_diff'] = handovers['time'].diff()
+                    handovers.loc[:, 'time_diff'] = handovers['time'].diff()  # Use loc to avoid warning
                     rapid_handovers = handovers[handovers['time_diff'] < timedelta(seconds=20)]
                     
                     for idx, row in rapid_handovers.iterrows():
@@ -244,7 +274,10 @@ def detect_comprehensive_anomalies(file_path: str) -> str:
     Runs all anomaly detection methods and provides a comprehensive report.
     """
     try:
-        all_results = []
+        # First, get data statistics
+        stats = analyze_data_statistics(file_path)
+        
+        all_results = [stats]
         
         # Run all detection methods
         signal_anomalies = detect_signal_anomalies(file_path)
@@ -259,10 +292,10 @@ def detect_comprehensive_anomalies(file_path: str) -> str:
         if 'Viavi.UE.anomalies' in df.columns:
             reported_anomalies = df[df['Viavi.UE.anomalies'] > 0]
             if not reported_anomalies.empty:
-                viavi_report = f"\n=== System-Reported Anomalies ===\n"
+                viavi_report = f"\n=== System-Reported Anomalies (Viavi) ===\n"
                 viavi_report += f"Found {len(reported_anomalies)} entries with Viavi anomalies:\n"
-                for idx, row in reported_anomalies.head(5).iterrows():
-                    viavi_report += f"- UE: {row.get('ue-id', 'Unknown')}, Time: {row.get('time', 'Unknown')}, Count: {row['Viavi.UE.anomalies']}\n"
+                for idx, row in reported_anomalies.head(10).iterrows():  # Show up to 10
+                    viavi_report += f"- UE: {row.get('ue-id', 'Unknown')}, Time: {row.get('time', 'Unknown')}, Count: {row['Viavi.UE.anomalies']}, Cell: {row.get('nrCellIdentity', 'Unknown')}\n"
                 all_results.append(viavi_report)
         
         # Combine all results
@@ -279,7 +312,45 @@ def detect_comprehensive_anomalies(file_path: str) -> str:
     except Exception as e:
         return f"Error in comprehensive anomaly detection: {str(e)}"
 
-def format_anomaly_report(anomalies: List[Dict], title: str) -> str:
+def analyze_data_statistics(file_path: str) -> str:
+    """
+    Provides statistics about the data to help understand why anomalies might not be detected.
+    """
+    try:
+        df = pd.read_csv(file_path)
+        df.columns = df.columns.str.strip()
+        
+        stats = f"\n=== Data Statistics for {file_path} ===\n"
+        stats += f"Total rows: {len(df)}\n"
+        
+        if 'ue-id' in df.columns:
+            stats += f"Unique UEs: {df['ue-id'].nunique()}\n"
+            stats += f"UE IDs: {df['ue-id'].unique()}\n"
+        
+        if 'nrCellIdentity' in df.columns:
+            stats += f"Unique cells: {df['nrCellIdentity'].nunique()}\n"
+            stats += f"Cells: {df['nrCellIdentity'].unique()}\n"
+        
+        # Signal statistics
+        for col in ['RF.serving.RSRP', 'RF.serving.RSRQ', 'RF.serving.RSSINR']:
+            if col in df.columns:
+                stats += f"\n{col}:\n"
+                stats += f"  Mean: {df[col].mean():.2f}\n"
+                stats += f"  Std: {df[col].std():.2f}\n"
+                stats += f"  Min: {df[col].min():.2f}\n"
+                stats += f"  Max: {df[col].max():.2f}\n"
+        
+        # Throughput statistics
+        if 'DRB.UEThpDl' in df.columns:
+            stats += f"\nDRB.UEThpDl (Throughput):\n"
+            stats += f"  Mean: {df['DRB.UEThpDl'].mean():.2f} Mbps\n"
+            stats += f"  Min: {df['DRB.UEThpDl'].min():.2f} Mbps\n"
+            stats += f"  Max: {df['DRB.UEThpDl'].max():.2f} Mbps\n"
+        
+        return stats
+        
+    except Exception as e:
+        return f"Error analyzing data statistics: {str(e)}"
     """
     Formats anomaly findings into a readable report.
     """
@@ -326,36 +397,44 @@ def create_anomaly_detection_agent(model):
             "You are an expert anomaly detection specialist for telecom networks. "
             "Your role is to analyze network data and identify various types of anomalies. "
             
-            "You have access to several anomaly detection functions:\n"
-            "1. detect_signal_anomalies() - Finds signal quality issues (RSRP, RSRQ, RSSINR outliers)\n"
-            "2. detect_throughput_anomalies() - Identifies performance degradation and sudden drops\n"
-            "3. detect_handover_anomalies() - Detects ping-pong effects and rapid handovers\n"
-            "4. detect_resource_anomalies() - Finds resource exhaustion issues\n"
-            "5. detect_comprehensive_anomalies() - Runs all detection methods for a complete analysis\n"
+            "IMPORTANT: You must ALWAYS use detect_comprehensive_anomalies() for general anomaly detection requests!\n"
+            "This function runs ALL detection methods including:\n"
+            "- Signal quality analysis (RSRP, RSRQ, RSSINR)\n"
+            "- Throughput performance issues\n"
+            "- Handover problems (ping-pong, rapid handovers)\n"
+            "- Resource usage anomalies\n"
+            "- System-reported anomalies (Viavi)\n"
             
-            "When asked to detect anomalies:\n"
-            "1. Use the appropriate detection function based on the query\n"
-            "2. For general anomaly detection, use detect_comprehensive_anomalies()\n"
-            "3. Always provide the file path (e.g., 'data/filtered/ue_mobility_UE9.csv')\n"
-            "4. Interpret the results and provide actionable insights\n"
-            "5. Suggest potential root causes and remediation steps\n"
+            "Available detection functions:\n"
+            "1. detect_comprehensive_anomalies(file_path) - USE THIS FOR ALL GENERAL ANOMALY REQUESTS\n"
+            "2. detect_signal_anomalies(file_path) - Only for specific signal analysis\n"
+            "3. detect_throughput_anomalies(file_path) - Only for specific throughput analysis\n"
+            "4. detect_handover_anomalies(file_path) - Only for specific handover analysis\n"
+            "5. detect_resource_anomalies(file_path) - Only for specific resource analysis\n"
             
-            "Key anomaly types to watch for:\n"
-            "- Signal degradation in specific areas\n"
-            "- Throughput below acceptable thresholds\n"
-            "- Rapid handovers indicating coverage issues\n"
-            "- Ping-pong effects between cells\n"
-            "- Resource exhaustion\n"
-            "- Patterns that indicate network optimization opportunities\n"
+            "When you receive a file path:\n"
+            "1. If asked to 'detect anomalies' or 'find issues' → use detect_comprehensive_anomalies()\n"
+            "2. Only use specific functions if explicitly asked for that type\n"
+            "3. The file path will be something like 'data/filtered/ue_anomaly_analysis_UE5.csv'\n"
+            "4. Always interpret and summarize the results\n"
+            "5. Provide actionable recommendations\n"
             
-            "Always provide clear, actionable recommendations based on your findings."
+            "The comprehensive analysis will:\n"
+            "- Use statistical methods to find outliers in signal quality\n"
+            "- Detect sudden throughput drops and low performance\n"
+            "- Identify rapid handovers and ping-pong effects\n"
+            "- Find resource exhaustion issues\n"
+            "- Report system-detected anomalies\n"
+            
+            "Remember: For any general anomaly detection request, ALWAYS use detect_comprehensive_anomalies()!"
         ),
         tools=[
             detect_signal_anomalies,
             detect_throughput_anomalies,
             detect_handover_anomalies,
             detect_resource_anomalies,
-            detect_comprehensive_anomalies
+            detect_comprehensive_anomalies,
+            analyze_data_statistics
         ],
     )
     

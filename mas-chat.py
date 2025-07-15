@@ -64,8 +64,9 @@ workflow = create_supervisor(
         "2. THEN: Route to enhanced_network_agent to analyze the filtered data\n"
         
         "For ANOMALY DETECTION queries (detect anomalies, find issues, problems, outliers):\n"
-        "1. FIRST: Route to data_extraction_agent to get relevant data\n"
-        "2. THEN: Route to anomaly_detection_agent to detect anomalies\n"
+        "1. FIRST: Route to data_extraction_agent with the query INCLUDING the word 'anomaly' or 'detect'\n"
+        "2. THEN: Route to anomaly_detection_agent with the filtered file path\n"
+        "3. The anomaly agent needs ALL data columns to perform proper analysis\n"
         
         "For XAPP-related queries (logs, deployment, configurations):\n"
         "- Route directly to xapp_agent\n"
@@ -73,18 +74,17 @@ workflow = create_supervisor(
         "IMPORTANT WORKFLOW:\n"
         "- Network queries MUST go through data extraction first, then analysis\n"
         "- Anomaly detection queries MUST go through data extraction first, then anomaly detection\n"
-        "- The data_extraction_agent will create filtered CSV files\n"
-        "- The enhanced_network_agent analyzes network performance\n"
-        "- The anomaly_detection_agent identifies problems and anomalies\n"
+        "- For anomaly detection, ensure the data extraction agent extracts ALL columns, not just anomaly columns\n"
+        "- The anomaly_detection_agent will run its own detection algorithms on the full data\n"
         
         "Example routing:\n"
         "Query: 'Detect anomalies for UE5'\n"
-        "1. data_extraction_agent → extracts all UE5 data\n"
-        "2. anomaly_detection_agent → analyzes for anomalies\n"
+        "1. data_extraction_agent → extracts ALL UE5 data (mobility + signal + throughput + resources)\n"
+        "2. anomaly_detection_agent → runs comprehensive anomaly detection algorithms\n"
         
         "Query: 'Find signal quality issues in the network'\n"
-        "1. data_extraction_agent → extracts signal quality data\n"
-        "2. anomaly_detection_agent → detects signal anomalies\n"
+        "1. data_extraction_agent → extracts all signal quality data with 'detect signal anomaly' query\n"
+        "2. anomaly_detection_agent → detects signal anomalies using statistical methods\n"
     )
 )
 
